@@ -1,22 +1,30 @@
 import { useEffect, useState } from "react";
 
+import { LeftArrow } from "neetoicons";
 import { Spinner } from "neetoui";
 import { append, isNotNil } from "ramda";
+import { useParams, useHistory } from "react-router-dom";
 
 import Carousel from "./Carousel";
 
-import productsApi from "../apis/products";
+import productsApi from "../../apis/products";
+import PageNotFound from "../commons/PageNotFound";
 
 const Product = () => {
   const [product, setProduct] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+
+  const history = useHistory();
+  const { slug } = useParams();
 
   const fetchProduct = async () => {
     try {
-      const response = await productsApi.show();
+      const response = await productsApi.show(slug);
       setProduct(response);
     } catch (error) {
-      console.log("An error occurred:", error);
+      console.log(error);
+      setIsError(true);
     } finally {
       setIsLoading(false);
     }
@@ -38,9 +46,15 @@ const Product = () => {
     );
   }
 
+  if (isError) return <PageNotFound />;
+
   return (
     <div className="px-6 pb-6">
       <div>
+        <LeftArrow
+          className="hover:neeto-ui-bg-gray-400 neeto-ui-rounded-full mr-6"
+          onClick={history.goBack}
+        />
         <p className="py-2 text-4xl font-semibold">{name}</p>
         <hr className="border-2 border-black" />
       </div>
