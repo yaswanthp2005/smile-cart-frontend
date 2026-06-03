@@ -1,535 +1,456 @@
 BigBinary Academy
 React
 State management
-14.5
+14.6
 
 Search
 /
 
 LESSON
-14.5Adding the ability to set quantity for cart items
-In this lesson, we will add a feature to set the quantity of products added to the cart, as shown below:
-product-quantity-requirement.gif
-Let's get started by enabling the useCartItemsStore to store the quantity of a product along with its slug. We can transform the cartItems state into an object with the slug as the key and the quantity as the value. Initially, we'll set the value of cartItems as an empty object. We will replace the toggleIsInCart function with setSelectedQuantity, which will update the quantity of a product. If the quantity supplied is zero or negative, the function will remove that product from the cart.
-1import { assoc, dissoc } from "ramda";
-2import { create } from "zustand";
-3
-4const useCartItemsStore = create(set => ({
-5  cartItems: {},
-6  setSelectedQuantity: (slug, quantity) =>
-7    set(({ cartItems }) => {
-8      if (quantity <= 0) {
-9        return { cartItems: dissoc(slug, cartItems) };
-10      }
-11
-12      return { cartItems: assoc(slug, quantity, cartItems) };
-13    }),
-14}));
-15
-16export default useCartItemsStore;
-Since we have made cartItems an object, we should take the length of keys of the object to get the cart items count in Header component:
-1import { keys } from "ramda";
-2// remaining imports
-3
-4const Header = ({/* props */}) => {
-5  const cartItemsCount = useCartItemsStore(
-6    store => keys(store.cartItems).length
-7  );
+14.6Adding the cart page
+In this lesson, we will display a cart page when users click the cart icon in the Header. It will display the details of the products users have added to their cart. Along with listing items in the cart, we will also display total price details as shown:
+cart-page-requirement.png
+Let's get started by creating a Cart directory inside the src/components directory. We will have an index.jsx file as the entry point for the cart page:
+1mkdir src/components/Cart
+2touch src/components/Cart/index.jsx
+First, let's define the Cart component by just returning a Header:
+1import Header from "components/commons/Header";
+2
+3const Cart = () => <Header title="My Cart" />;
+4
+5export default Cart;
+Next, we will add a route for the cart page. To start, let's include an entry for the /cart path in the routes.js file:
+1const routes = {
+2  // remaining routes...
+3  cart: "/cart",
+4};
+In the App component we will add a Route component for the cart page:
+1// App.jsx
+2<Route exact component={Cart} path={routes.cart} />
+Add a link to the cart page from the cart icon in the header by wrapping it with a Link component:
+1// Header.jsx
+2<Link to={routes.cart}>
+3  <AiOutlineShoppingCart size="2rem" />
+4</Link>
+Now, clicking the cart icon will take you to the cart page:
+cart-link.gif
+The next step is to display the details of cart items. We already have the slugs and quantity of each product added to the cart in the Zustand store. We will need to retrieve more details about each product, such as name and price.
+
+To achieve this, we can get the slugs from the cart items store and then send a request to the product details API to fetch the details of each product using these slugs. We can use the Promise.all method to make multiple parallel requests to the product details API for the product slugs in the cart.
+1import { useEffect } from "react";
+2
+3import productsApi from "apis/products";
+4import Header from "components/commons/Header";
+5import { keys } from "ramda";
+6import useCartItemsStore from "stores/useCartItemsStore";
+7import { shallow } from "zustand/shallow";
 8
-9  // remaining code
-10}
-Now, let's build a component to manage product quantity updates as shown:
-product-quantity.png
-Create a component named ProductQuantity in the commons directory for the same:
-1touch src/components/commons/ProductQuantity.jsx
-We can retrieve the quantity associated with a specific product and the setSelectedQuantity function from the Zustand store to display and update the product quantity. We will make use of the paths function from ramda to pick these keys from the cart items store.
-1import { Button } from "neetoui";
-2import { paths } from "ramda";
-3import useCartItemsStore from "stores/useCartItemsStore";
-4import { shallow } from "zustand/shallow";
-5
-6const ProductQuantity = ({ slug }) => {
-7  const [selectedQuantity, setSelectedQuantity] = useCartItemsStore(
-8    paths([["cartItems", slug], ["setSelectedQuantity"]]),
-9    shallow
-10  );
+9const Cart = () => {
+10  const slugs = useCartItemsStore(store => keys(store.cartItems), shallow);
 11
-12  return (
-13    <div className="neeto-ui-border-black neeto-ui-rounded inline-flex flex-row items-center border">
-14      <Button
-15        className="focus-within:ring-0"
-16        label="-"
-17        style="text"
-18        onClick={() => setSelectedQuantity(slug, selectedQuantity - 1)}
-19      />
-20      {selectedQuantity}
-21      <Button
-22        className="focus-within:ring-0"
-23        label="+"
-24        style="text"
-25        onClick={() => setSelectedQuantity(slug, selectedQuantity + 1)}
-26      />
-27    </div>
-28  );
+12  const fetchCartProducts = async () => {
+13    try {
+14      const responses = await Promise.all(
+15        slugs.map(slug => productsApi.show(slug))
+16      );
+17
+18      console.log(responses);
+19    } catch (error) {
+20      console.log("An error occurred:", error);
+21    }
+22  };
+23
+24  useEffect(() => {
+25    fetchCartProducts();
+26  }, []);
+27
+28  return <Header title="My Cart" />;
 29};
 30
-31export default ProductQuantity;
-Similar to the AddToCart component, we should prevent navigation to the product page when the user interacts with this component from the ProductListItem component:
-1const ProductQuantity = ({ slug }) => {
-2  // ...
+31export default Cart;
+The productsApi.show method returns a Promise. We have mapped the slugs array to create an array of promises, each corresponding to the request for the product details of a slug. These promises are then passed to the Promise.all method. The Promise.all method itself returns a promise. If all the requests are successful, this promise returns an array of responses for the requests. It rejects if any of the input promises reject, providing the first rejection reason. In this context, the responses will form an array of products corresponding to the slugs.
+promise-all-responses.png
+Now that we have the product details, let's create a state to store this details. We will also create a state to handle the loading state.
+1const [products, setProducts] = useState([]);
+2const [isLoading, setIsLoading] = useState(true);
 3
-4  const preventNavigation = e => {
-5    e.stopPropagation();
-6    e.preventDefault();
-7  };
-8
-9  return (
-10    <div className="neeto-ui-border-black neeto-ui-rounded inline-flex flex-row items-center border">
-11      <Button
-12        className="focus-within:ring-0"
-13        label="-"
-14        style="text"
-15        onClick={e => {
-16          preventNavigation(e);
-17          setSelectedQuantity(slug, selectedQuantity - 1);
-18        }}
-19      />
-20      {selectedQuantity}
-21      <Button
-22        className="focus-within:ring-0"
-23        label="+"
-24        style="text"
-25        onClick={e => {
-26          preventNavigation(e);
-27          setSelectedQuantity(slug, selectedQuantity + 1);
-28        }}
-29      />
-30    </div>
-31  );
-32};
-33
-34export default ProductQuantity;
-Next, we will update the AddToCart component to display the ProductQuantity component mentioned above upon clicking the "Add to cart" button. To achieve this, we will retrieve the selectedQuantity and setSelectedQuantity from the cart items store. The AddToCart component will be displayed if selectedQuantity is nil; otherwise, the ProductQuantity component will be displayed. When the user clicks the "Add to cart" button, we will initialize the product quantity for the given slug to 1.
-1import { Button } from "neetoui";
-2import { isNil, paths } from "ramda";
-3import useCartItemsStore from "stores/useCartItemsStore";
-4import { shallow } from "zustand/shallow";
-5
-6import ProductQuantity from "./ProductQuantity";
-7
-8const AddToCart = ({ slug }) => {
-9  const [selectedQuantity, setSelectedQuantity] = useCartItemsStore(
-10    paths([["cartItems", slug], ["setSelectedQuantity"]]),
-11    shallow
-12  );
-13
-14  const handleClick = e => {
-15    e.stopPropagation();
-16    e.preventDefault();
-17    setSelectedQuantity(slug, 1);
-18  };
-19
-20  if (isNil(selectedQuantity)) {
-21    return <Button label="Add to cart" size="large" onClick={handleClick} />;
-22  }
-23
-24  return <ProductQuantity {...{ slug }} />;
-25};
-26
-27export default AddToCart;
-Given that we're duplicating the code to retrieve selectedQuantity and setSelectedQuantity in both the AddToCart and ProductQuantity components, let's extract this logic into a custom hook. Let's create a hook named useSelectedQuantity under src/components/hooks for this:
-1mkdir src/components/hooks
-2touch src/components/hooks/useSelectedQuantity.js
-We'll structure the hook to allow the use of the setSelectedQuantity function without the need to pass the slug each time. Instead, we'll accept the slug as an argument to this hook.
-1import { paths } from "ramda";
-2import useCartItemsStore from "stores/useCartItemsStore";
-3import { shallow } from "zustand/shallow";
-4
-5const useSelectedQuantity = slug => {
-6  const [selectedQuantity, setSelectedQuantity] = useCartItemsStore(
-7    paths([["cartItems", slug], ["setSelectedQuantity"]]),
-8    shallow
-9  );
-10
-11  const updateSelectedQuantity = quantity =>
-12    setSelectedQuantity(slug, quantity);
-13
-14  return { selectedQuantity, setSelectedQuantity: updateSelectedQuantity };
-15};
-16
-17export default useSelectedQuantity;
-Now, you can invoke the useSelectedQuantity hook from both the AddToCart and ProductQuantity components instead of directly using the useCartItemsStore hook. Additionally, there's no need to pass slug to the setSelectedQuantity function.
-
-Now, lets update AddToCart component.
-1import useSelectedQuantity from "components/hooks/useSelectedQuantity";
-2//...
-3
-4const AddToCart = ({ slug, availableQuantity }) => {
-5  const { selectedQuantity, setSelectedQuantity } = useSelectedQuantity(slug);
-6
-7  const handleClick = e => {
-8    e.stopPropagation();
-9    e.preventDefault();
-10    setSelectedQuantity(1);
-11  };
-12
-13  //...
-14}
-Similarly, update the ProductQuantity component as well.
-1import useSelectedQuantity from "components/hooks/useSelectedQuantity";
-2//...
-3
-4const ProductQuantity = ({ slug, availableQuantity }) => {
-5  // ...
-6
-7  const { selectedQuantity, setSelectedQuantity } = useSelectedQuantity(slug);
-8
-9  //...
-10  return (
-11    <div className="neeto-ui-border-black neeto-ui-rounded inline-flex flex-row items-center border">
-12    <Button
-13      // ...
-14      onClick={e => {
-15        preventNavigation(e);
-16        setSelectedQuantity(selectedQuantity - 1);
-17      }}
-18    />
-19    {selectedQuantity}
-20    <Button
-21      //...
-22      onClick={e => {
-23        preventNavigation(e);
-24        setSelectedQuantity(selectedQuantity + 1);
-25      }}
-26    />
-27    </div>
-28  )
-29
-30}
-At this stage, upon clicking the "Add to Cart" button, you should be able to view the ProductQuantity component and subsequently update the quantity as needed.
-
-In the real world, each product has a capped availability, and we must prevent users from increasing the count beyond that limit. To achieve this, we will disable the + button of the ProductQuantity when the selected quantity equals the available quantity. For this, the ProductQuantity component should be aware of the available quantity of the corresponding product.
-
-We will obtain the available quantity for each product from the products array in the ProductList component. As we pass the entire product details to the ProductListItem component, we can destructure this value from the ProductListItem props and pass it down to ProductQuantity through the AddToCart component.
-1const ProductListItem = ({
-2  imageUrl,
-3  name,
-4  offerPrice,
-5  slug,
-6  availableQuantity,
-7}) => (
-8  <Link
-9    className="neeto-ui-border-black neeto-ui-rounded-xl flex w-48 flex-col items-center justify-between border p-4"
-10    to={buildUrl(routes.products.show, { slug })}
-11  >
-12    {/* Remaining JSX */}
-13    <AddToCart {...{ availableQuantity, slug }} />
-14  </Link>
-15);
-We can destructure the available quantity directly from the response in the Product component:
-1  const {
-2    name,
-3    description,
-4    mrp,
-5    offerPrice,
-6    imageUrl,
-7    imageUrls,
-8    availableQuantity,
-9  } = product;
-Pass the availableQuantity prop to the AddToCart component from both Product and ProductListItem components:
-1<AddToCart {...{ availableQuantity, slug }} />
-We can then pass the prop down to the ProductQuantity component:
-1const AddToCart = ({ slug, availableQuantity }) => {
-2  // remaining code
-3  return <ProductQuantity {...{ slug, availableQuantity }} />;
-4};
-Utilizing the availableQuantity prop, we can disable the increment button of the ProductQuantity component when the selectedQuantity reaches the availableQuantity:
-1const ProductQuantity = ({ slug, availableQuantity }) => {
-2  const { selectedQuantity, setSelectedQuantity } = useSelectedQuantity(slug);
-3
-4  const isNotValidQuantity = selectedQuantity >= availableQuantity;
-5
-6  const preventNavigation = e => {
-7    e.stopPropagation();
-8    e.preventDefault();
-9  };
-10
-11  return (
-12    <div className="neeto-ui-border-black neeto-ui-rounded inline-flex flex-row items-center border">
-13      {/* remaining JSX */}
-14      <Button
-15        className="focus-within:ring-0"
-16        disabled={isNotValidQuantity}
-17        label="+"
-18        style="text"
-19        onClick={e => {
-20          preventNavigation(e);
-21          setSelectedQuantity(selectedQuantity + 1);
-22        }}
-23      />
-24    </div>
-25  );
-26};
-To enrich the user experience, it's crucial to offer clear feedback when a button is disabled, providing information on why a certain action cannot be performed. To achieve this, we'll implement a tooltip to be displayed when the increment button is disabled. For this, we can utilize the Tooltip component from neeto-ui:
-tooltip-requirement.png
-Typically, the Tooltip component displays the provided content when a user hovers over the element wrapped by it. However, in this case, wrapping the Button component won't display the content directly because disabled buttons won't trigger any events. To address this, we will enclose the Button component within a div element to enable the tooltip functionality.
-
-We'll abstract this functionality into a reusable component called TooltipWrapper. Instead of directly wrapping the Button with the tooltip, we can use this component. To ensure the tooltip is displayed only when the button is disabled, we'll introduce a showTooltip prop for conditional rendering in the TooltipWrapper.
-1// src/components/commons/TooltipWrapper.jsx
-2import { Tooltip } from "neetoui";
-3
-4const TooltipWrapper = ({ showTooltip, children, ...tooltipProps }) => {
-5  if (!showTooltip) return children;
-6
-7  return (
-8    <Tooltip {...tooltipProps}>
-9      <div>{children}</div>
-10    </Tooltip>
-11  );
-12};
-13
-14export default TooltipWrapper;
-Now export the TooltipWrapper component from the commons folder. Add the following line to the commons/index.js file.
-1import AddToCart from "./AddToCart";
-2import Header from "./Header";
-3import PageLoader from "./PageLoader";
-4import PageNotFound from "./PageNotFound";
-5import TooltipWrapper from "./TooltipWrapper";
-6
-7export { Header, PageNotFound, PageLoader, AddToCart, TooltipWrapper };
-Now, in the ProductQuantity component we can show a tooltip by enclosing the + button with TooltipWrapper and providing the required props. As we only want the tooltip to appear when the button is disabled, we'll set the showTooltip prop to isNotValidQuantity:
-1import { TooltipWrapper } from "components/commons";
-2//...
-3
-4const ProductQuantity = ({ slug, availableQuantity }) => {
-5  //...
-6  return (
-7    <div className="neeto-ui-border-black neeto-ui-rounded inline-flex flex-row items-center border">
-8      {/* remaining JSX */}
+4const fetchCartProducts = async () => {
+5  try {
+6    const responses = await Promise.all(
+7      slugs.map(slug => productsApi.show(slug))
+8    );
 9
-10      <TooltipWrapper
-11        content="Reached maximum units"
-12        position="top"
-13        showTooltip={isNotValidQuantity}
-14      >
-15        <Button
-16          className="focus-within:ring-0"
-17          disabled={isNotValidQuantity}
-18          label="+"
-19          style="text"
-20          onClick={e => {
-21            preventNavigation(e);
-22            setSelectedQuantity(selectedQuantity + 1);
-23          }}
-24        />
-25      </TooltipWrapper>
-26    </div>
-27  );
-28};
-29
-30export default ProductQuantity;
-Verify if the tooltip is being displayed when the selected quantity equals the available quantity.
-
-To further improve the user experience, instead of displaying the selected quantity as text, we will turn it into an input component. This allows users to directly input the desired quantity without repeatedly clicking the + button. We will use the Input component from neeto-ui. We will pass the preventNavigation function as its click handler.
-1import { Input } from "neetoui";
+10    setProducts(responses);
+11  } catch (error) {
+12    console.log("An error occurred:", error);
+13  } finally {
+14    setIsLoading(false);
+15  }
+16};
+We will add early returns in our Cart component to display a page loader when the product data is being fetched and to show a no data page when there are no items in the cart:
+1if (isLoading) return <PageLoader />;
 2
-3const ProductQuantity = ({ slug, availableQuantity }) => {
-4  // remaining code
-5
-6  return (
-7    <div className="neeto-ui-border-black neeto-ui-rounded inline-flex flex-row items-center border">
-8      <Button
-9        className="focus-within:ring-0"
-10        label="-"
-11        style="text"
-12        onClick={e => {
-13          preventNavigation(e);
-14          setSelectedQuantity(selectedQuantity - 1);
-15        }}
-16      />
-17      <Input
-18        nakedInput
-19        className="ml-2"
-20        contentSize="2"
-21        value={selectedQuantity}
-22        onClick={preventNavigation}
-23      />
-24      {/* remaining JSX */}
-25    </div>
-26  );
-27};
-Given that the input component manages its value as a string, we'll also store the quantity as a string in our store. To prevent the removal of items when a user types in a value, we'll implement a condition to check whether the quantity is empty or not. We only need to check the quantity value when the input is not an empty string. We can achieve this using the isNotEmpty function from neetocist.
-1import { isNotEmpty } from "neetocist";
-2// remaining imports
+3if (isEmpty(products)) {
+4  return (
+5    <>
+6      <Header title="My Cart" />
+7      <div className="flex h-screen items-center justify-center">
+8        <NoData title="Your cart is empty!" />
+9      </div>
+10    </>
+11  );
+12}
+Now, let's create a ProductCard component to define the JSX for displaying the product details. It should include the name, image, MRP, offer price, and an option to update the product quantity:
+1import ProductQuantity from "components/commons/ProductQuantity";
+2import { Typography } from "neetoui";
 3
-4const useCartItemsStore = create(set => ({
-5  cartItems: {},
-6  setSelectedQuantity: (slug, quantity) =>
-7    set(({ cartItems }) => {
-8      if (quantity <= 0 && isNotEmpty(quantity)) {
-9        return { cartItems: dissoc(slug, cartItems) };
-10      }
-11
-12      return { cartItems: assoc(slug, String(quantity), cartItems) };
-13    }),
-14}));
-To guarantee the proper functionality of the ProductQuantity component after incorporating the input component, it's crucial to parse the string input to an integer and verify whether the user input is within the specified limits. If not, we'll display a Toastr indicating the available quantity of the product:
-error-toastr-available-quantity.gif
-We will need to add the ToasterContainer from react-toastify package for Toastr component from neetoUI to work. We have installed the react-toastify package as a dependency while installing neetoUI. We only need to import ToastrContainer and add it in the src/index.jsx file:
-1import { ToastContainer } from "react-toastify";
-2// remaining imports
+4const ProductCard = ({
+5  slug,
+6  imageUrl,
+7  offerPrice,
+8  mrp,
+9  name,
+10  availableQuantity,
+11}) => (
+12  <div className="neeto-ui-rounded neeto-ui-border-black border p-2">
+13    <div className="flex w-full items-center space-x-5">
+14      <img alt={name} height={80} src={imageUrl} width={80} />
+15      <div className="flex-grow space-y-1">
+16        <Typography className="mb-2" style="h4" weight="bold">
+17          {name}
+18        </Typography>
+19        <Typography style="body2">MRP: ${mrp}</Typography>
+20        <Typography style="body2">Offer price: ${offerPrice}</Typography>
+21      </div>
+22      <ProductQuantity {...{ availableQuantity, slug }} />
+23    </div>
+24  </div>
+25);
+26
+27export default ProductCard;
+Let's map the products data over the ProductCard component from the Cart component to display the cart items:
+1const Cart = () => {
+2  // remaining  code
 3
-4// ...
-5root.render(
-6  <React.StrictMode>
-7      <BrowserRouter>
-8        <ToastContainer />
-9        <App />
-10      </BrowserRouter>
-11  </React.StrictMode>
-12);
-Now, let's define a change handler for the Input component in the ProductQuantity component to implement logic to parse and validate user input as discussed above:
-1import { Toastr } from "neetoui";
-2import useSelectedQuantity from "components/hooks/useSelectedQuantity";
-3//...
-4
-5const ProductQuantity = ({ slug, availableQuantity }) => {
-6  const { selectedQuantity, setSelectedQuantity } = useSelectedQuantity(slug);
-7  //...
-8
-9  const handleSetCount = event => {
-10    const { value } = event.target;
-11    const isNotValidInputQuantity = parseInt(value) > availableQuantity;
-12
-13    if (isNotValidInputQuantity) {
-14      Toastr.error(`Only ${availableQuantity} units are available`, { autoClose: 2000 });
-15      setSelectedQuantity(availableQuantity);
-16    } else {
-17    setSelectedQuantity(value);
-18    }
-19  };
-20
-21  //...
-22
-23  return (
-24    {/* remaining JSX */}
-25
-26    <Input
-27      nakedInput
-28      className="ml-2"
-29      contentSize="2"
-30      value={selectedQuantity}
-31      onClick={preventNavigation}
-32      onChange={handleSetCount}
-33    />
-34
-35    {/* remaining JSX */}
-36  );
-37};
-We should also ensure that the user doesn't input anything other than digits before updating the quantity in the store. To achieve this, we can define a regex to check whether the input is a digit or an empty string within the constants file inside the components directory.
-1// src/components/constants
-2export const VALID_COUNT_REGEX = /^(?:\d*|)$/;
-In the handleSetCount function, we can test the input against the above regex and update the store only if the input matches the regex:
-1const handleSetCount = event => {
-2  const { value } = event.target;
-3  const isNotValidInputQuantity = parseInt(value) > availableQuantity;
-4
-5  if (isNotValidInputQuantity) {
-6    Toastr.error(`Only ${availableQuantity} units are available`, { autoClose: 2000 });
-7    setSelectedQuantity(availableQuantity);
-8  } else if (VALID_COUNT_REGEX.test(value)) {
-9    setSelectedQuantity(value);
-10  }
-11};
-To prevent input from the user after entering a quantity outside the limit, we will shift the focus away from the input component by triggering the onBlur event. This can be accomplished by using the useRef hook to reference the Input component.
-1import { useRef } from "react";
-2// ...
-3
-4const ProductQuantity = ({ slug, availableQuantity }) => {
-5  const countInputFocus = useRef(null);
-6  // ...
-7
-8  const handleSetCount = event => {
-9    const { value } = event.target;
-10    const isNotValidInputQuantity = parseInt(value) > availableQuantity;
-11
-12    if (isNotValidInputQuantity) {
-13      Toastr.error(`Only ${availableQuantity} units are available`, { autoClose: 2000 });
-14      setSelectedQuantity(availableQuantity);
-15      countInputFocus.current.blur();
-16    } else if (VALID_COUNT_REGEX.test(value)) {
-17      setSelectedQuantity(value);
-18    }
-19  };
-20
-21  // ...
-22
-23  return (
-24    <div className="neeto-ui-border-black neeto-ui-rounded inline-flex flex-row items-center border">
-25      {/* remaining JSX */}
-26      <Input
-27        nakedInput
-28        className="ml-2"
-29        contentSize="2"
-30        ref={countInputFocus}
-31        value={selectedQuantity}
-32        onChange={handleSetCount}
-33        onClick={preventNavigation}
-34      />
-35      {/* remaining JSX */}
-36    </div>
-37  );
-38};
-To ensure that the increment and decrement buttons work as expected after converting the quantity to a string, we should parse an integer from the selectedQuantity value from the store. This parsed value should be used to increment and decrement the quantity. Otherwise, clicking the button would simply append 1 to the quantity since the + acts as a concatenation operator for strings. We will also utilize this parsed value to set the isNotValidQuantity variable, which is used to disable the + button.
-1const ProductQuantity = ({ slug, availableQuantity }) => {
-2  const countInputFocus = useRef(null);
-3
-4  const { selectedQuantity, setSelectedQuantity } = useSelectedQuantity(slug);
-5
-6  const parsedSelectedQuantity = parseInt(selectedQuantity) || 0;
-7  const isNotValidQuantity = parsedSelectedQuantity >= availableQuantity;
-8
-9  // remaining code
-10}
-Now, instead of calling the setSelectedQuantity using selectedQuantity, we will use the parsedSelectedQuantity on button clicks:
-1// "-" button
-2setSelectedQuantity(parsedSelectedQuantity - 1);
-3
-4// "+" button
-5setSelectedQuantity(parsedSelectedQuantity + 1);
-Great job! You've successfully added the ability to set the quantity of cart items.
+4  return (
+5    <>
+6      <Header title="My Cart" />
+7      <div className="mt-10 flex justify-center space-x-10">
+8        <div className="w-1/3 space-y-5">
+9          {products.map(product => (
+10            <ProductCard key={product.slug} {...product} />
+11          ))}
+12        </div>
+13      </div>
+14    </>
+15  );
+16};
+Since we are persisting the cart items to local storage, the already added product may no longer be available, or the current number of available stocks may be less than the already selected quantity. Therefore, we should validate these conditions before displaying the cart items to ensure the accuracy of the data.
 
-Finally, we will store the cart items and quantity details in local storage to persist data after a reload. This ensures that users can view the products added to the cart on their next visit. Zustand provides the persist middleware to store the Zustand state in storage. Let's utilize this middleware to persist the cart items store in local storage:
-1// remaining imports
-2import { persist } from "zustand/middleware";
+We will compare the selected quantity of each product in the store with the available quantity from the response. If the available quantity is less than the selected quantity, we will update the selected quantity in the store. For this purpose, we will need both cartItems and setSelectedQuantity from the store. We were only extracting the slugs from the cartItems object. We will replace the previous usage of useCartItemsStore to access the entire store.
+1const { cartItems, setSelectedQuantity } = useCartItemsStore();
+2
+3const slugs = keys(cartItems);
+Next, we can iterate over the responses array and set the selected quantity to the available quantity for the products whose stocks have been reduced. If any product in the cart is sold out, we will display a Toastr to inform the user that the product is no longer available.
+1const fetchCartProducts = async () => {
+2  try {
+3    const responses = await Promise.all(
+4      slugs.map(slug => productsApi.show(slug))
+5    );
+6
+7    setProducts(responses);
+8
+9    responses.forEach(({ availableQuantity, name, slug }) => {
+10      if (availableQuantity >= cartItems[slug]) return;
+11
+12      setSelectedQuantity(slug, availableQuantity);
+13      if (availableQuantity === 0) {
+14        Toastr.error(
+15          `${name} is no longer available and has been removed from cart`,
+16          {
+17            autoClose: 2000,
+18          }
+19        );
+20      }
+21    });
+22  } catch (error) {
+23    console.log("An error occurred:", error);
+24  } finally {
+25    setIsLoading(false);
+26  }
+27};
+Now, when you open the cart page, you'll receive a toastr message if any products added to the cart are sold out:
+product-deletion-toastr.png
+Adding feature to remove cart item
+Next, we will attach a delete button to the product card so that we can directly delete an item without decreasing its count:
+adding-delete-button.png
+First let's add a function to the cart items store to remove an item from the cartItems object.
+1import { assoc, dissoc, evolve } from "ramda";
+2// remaining imports
 3
 4const useCartItemsStore = create(
 5  persist(
 6    set => ({
-7      cartItems: {},
-8      setSelectedQuantity: (slug, quantity) =>
-9        set(({ cartItems }) => {
-10          if (quantity <= 0 && isNotEmpty(quantity)) {
-11            return { cartItems: dissoc(slug, cartItems) };
-12          }
+7      // ...
+8      removeCartItem: slug => set(evolve({ cartItems: dissoc(slug) })),
+9    }),
+10    { name: "cart-items-store" }
+11  )
+12);
+We can invoke the above removeCartItem function when the user clicks the delete button in the product cart:
+1// remaining imports
+2import { Delete } from "neetoicons";
+3import { prop } from "ramda";
+4import useCartItemsStore from "stores/useCartItemsStore";
+5
+6const ProductCard = ({
+7  slug,
+8  imageUrl,
+9  offerPrice,
+10  mrp,
+11  name,
+12  availableQuantity,
+13}) => {
+14  const removeCartItem = useCartItemsStore(prop("removeCartItem"));
+15
+16  return (
+17    <div className="neeto-ui-rounded neeto-ui-border-black border p-2">
+18      <div className="flex w-full items-center space-x-5">
+19        {/* remaining JSX */}
+20        <div className="flex items-center space-x-2">
+21          <ProductQuantity {...{ availableQuantity, slug }} />
+22          <Delete
+23            className="cursor-pointer"
+24            onClick={() => removeCartItem(slug)}
+25          />
+26        </div>
+27      </div>
+28    </div>
+29  );
+30};
+However, before executing irreversible actions such as deletion or invoking permissions, it's prudent to ask users for confirmation to avoid accidental actions. Therefore, we will show an alert using Alert component from neetoUI as shown:
+cart-item-delete-alert.png
+We will create a state shouldShowDeleteAlert to show an alert when the user clicks a delete button. On confirming the deletion using the submit button, we will call the removeCartItem function:
+1const ProductCard = ({
+2  slug,
+3  imageUrl,
+4  offerPrice,
+5  mrp,
+6  name,
+7  availableQuantity,
+8}) => {
+9  const [shouldShowDeleteAlert, setShouldShowDeleteAlert] = useState(false);
+10
+11  const removeCartItem = useCartItemsStore(prop("removeCartItem"));
+12
+13  return (
+14    <div className="neeto-ui-rounded neeto-ui-border-black border p-2">
+15      <div className="flex w-full items-center space-x-5">
+16        {/* remaining JSX */}
+17        <div className="flex items-center space-x-2">
+18          <ProductQuantity {...{ availableQuantity, slug }} />
+19          <Delete
+20            className="cursor-pointer"
+21            onClick={() => setShouldShowDeleteAlert(true)}
+22          />
+23          <Alert
+24            isOpen={shouldShowDeleteAlert}
+25            submitButtonLabel="Yes, remove"
+26            title="Remove item?"
+27            message={
+28              <Typography>
+29                You are removing <strong>{name}</strong> from cart. Do you want
+30                to continue?
+31              </Typography>
+32            }
+33            onClose={() => setShouldShowDeleteAlert(false)}
+34            onSubmit={() => {
+35              removeCartItem(slug);
+36              setShouldShowDeleteAlert(false);
+37            }}
+38          />
+39        </div>
+40      </div>
+41    </div>
+42  );
+43};
+Confirmation modals should guide the users through decision-making without unnecessary disruption. They should have clear titles, concise bodies, and actions that are predictable and scannable. For detailed guidelines on creating confirmation modals, please refer to this document, which outlines the practices we follow at BigBinary.
+
+We should include the cartItems in the dependency array of the useEffect hook to ensure synchronization of the product list with the store:
+1// Cart/index.jsx
+2
+3useEffect(() => {
+4  fetchCartProducts();
+5}, [cartItems]);
+Consolidating cart information
+Let's present consolidated information about the items added to the cart, including total MRP, total discounts, the total price to be paid after applying discounts, and the total number of items on the cart page:
+price-card.png
+The data for each product we receive from the backend contains the MRP and the offer price. We could calculate the total MRP by taking the sum of the MRP of each product multiplied by the quantity of the product in the cart. Similarly, we can calculate the total offer price.
+
+We will create a utility function named cartTotalOf in the src/components/utils.js file for this:
+1touch src/components/utils.js
+We will define the cartTotalOf function to calculate the summation of a particular key in product details. For this, we will pass two arguments: the products array, which should contain the details of products in the cart and priceKey to indicate the value for which we want to find summation.
+
+For instance, if we pass the following array and "mrp" as the key, the function should return the sum of the MRP for the given array:
+1const products = [
+2  {
+3    slug: "t-shirt",
+4    mrp: 499,
+5    offerPrice: 400,
+6  },
+7  {
+8    slug: "pants",
+9    mrp: 599,
+10    offerPrice: 500,
+11  },
+12];
 13
-14          return { cartItems: assoc(slug, String(quantity), cartItems) };
-15        }),
-16    }),
-17    { name: "cart-items-store" }
-18  )
-19);
-20
-21export default useCartItemsStore;
-Now, you can view the details of the cart items even after reloading the page.
-persist-middleware.png
+14const totalMrp = cartTotalOf(products, "mrp"); // 1098
+15const totalOfferPrice = cartTotalOf(products, "offerPrice"); // 900
+As discussed earlier, Zustand provides us APIs to access state outside components and hooks. The Zustand hooks come with two methods, getState and setState, to access state outside the components. We will use the getState method on the useCartItemsStore hook to access the cart items inside our utility function:
+1import { sum } from "ramda";
+2import useCartItemsStore from "stores/useCartItemsStore";
+3
+4export const cartTotalOf = (products, priceKey) => {
+5  const { cartItems } = useCartItemsStore.getState();
+6
+7  return sum(
+8    products.map(product => product[priceKey] * cartItems[product.slug])
+9  );
+10};
+Instead of passing hardcoded strings, we will create constants for the price keys inside src/components/constants.js and use them inside cart component:
+1// src/components/constants.js
+2export const MRP = "mrp";
+3
+4export const OFFER_PRICE = "offerPrice";
+1// Cart/index.jsx
+2const totalMrp = cartTotalOf(products, MRP);
+3const totalOfferPrice = cartTotalOf(products, OFFER_PRICE);
+Let's define a component to show these consolidated details. Create a file named PriceCard.jsx under the Cart directory. We will pass the totalMrp and totalOfferPrice calculated from the Cart component to the price card component and display the total MRP, discounts, offer price, and items count:
+1import classNames from "classnames";
+2import { Typography } from "neetoui";
+3import { gt, keys } from "ramda";
+4import useCartItemsStore from "stores/useCartItemsStore";
+5
+6const PriceCard = ({ totalMrp, totalOfferPrice }) => {
+7  const totalDiscounts = totalMrp - totalOfferPrice;
+8  const isDiscountPresent = gt(totalDiscounts, 0);
+9  const discountPercentage = ((totalDiscounts / totalMrp) * 100).toFixed(1);
+10
+11  const itemsCount = useCartItemsStore(store => keys(store.cartItems).length);
+12
+13  return (
+14    <div className="neeto-ui-rounded neeto-ui-border-black space-y-2 border p-3">
+15      <Typography
+16        className={classNames("flex justify-between", {
+17          "line-through": isDiscountPresent,
+18        })}
+19      >
+20        Total MRP: <span>${totalMrp}</span>
+21      </Typography>
+22      {isDiscountPresent && (
+23        <>
+24          <Typography className="flex justify-between text-green-700">
+25            Total discounts:{" "}
+26            <span>
+27              ${totalDiscounts} ({discountPercentage}%)
+28            </span>
+29          </Typography>
+30          <Typography className="flex justify-between">
+31            Total offer price: <span>${totalOfferPrice}</span>
+32          </Typography>
+33          <span className="neeto-ui-text-gray-500 text-sm">
+34            {itemsCount} item(s)
+35          </span>
+36        </>
+37      )}
+38    </div>
+39  );
+40};
+41export default PriceCard;
+Let's use the PriceCard component inside the Cart/index.jsx file:
+1import PriceCard from "./PriceCard";
+2// remaining imports
+3
+4const Cart = () => {
+5  // remaining code
+6
+7  return (
+8    <>
+9      <Header title="My Cart" />
+10      <div className="mt-10 flex justify-center space-x-10">
+11        <div className="w-1/3 space-y-5">
+12          {products.map(product => (
+13            <ProductCard key={product.slug} {...product} />
+14          ))}
+15        </div>
+16        {totalMrp > 0 && (
+17          <div className="w-1/4">
+18            <PriceCard {...{ totalMrp, totalOfferPrice }} />
+19          </div>
+20        )}
+21      </div>
+22    </>
+23  );
+24};
+In the later part of this course, we will introduce a Checkout page to confirm orders by entering contact information and a shipping address. However, for now, let's add a "Buy now" button to navigate to the "/checkout" path, corresponding to the Checkout page, in our PriceCard component:
+buy-now-price-card.png
+First, let's add the "/checkout" path to routes.js file:
+1const routes = {
+2  // ...
+3  checkout: "/checkout",
+4};
+Let's include the "Buy now" button in the PriceCard component, directing it to the "/checkout" path:
+1const PriceCard = ({/* props */}) => {
+2  return (
+3    <div className="neeto-ui-rounded neeto-ui-border-black space-y-2 border p-3">
+4      {/* remaining JSX */}
+5      <div className="flex flex-col items-center pt-4">
+6        <Button
+7          className="bg-neutral-800"
+8          label="Buy now"
+9          to={routes.checkout}
+10        />
+11      </div>
+12    </div>
+13  );
+14};
+At last, let's add the "Buy now" button to the Product page, allowing users to make a direct purchase from the product details page:
+buy-now-product-page.png
+In addition to redirecting to the checkout path, we will add the product to the cart by setting the quantity to 1:
+1const Product = () => {
+2  const { slug } = useParams();
+3
+4  const { selectedQuantity, setSelectedQuantity } = useSelectedQuantity(slug);
+5  // remaining code
+6  return (
+7    <>
+8      <div className="m-16 flex justify-center gap-16">
+9        ...
+10        <div className="w-3/5 space-y-4">
+11          ...
+12          <div className="flex space-x-10">
+13            <AddToCart {...{ availableQuantity, slug }} />
+14            <Button
+15              className="bg-neutral-800 hover:bg-neutral-950"
+16              label="Buy now"
+17              size="large"
+18              to={routes.checkout}
+19              onClick={() => setSelectedQuantity(selectedQuantity || 1)}
+20            />
+21          </div>
+22        </div>
+23      </div>
+24    </>
+25  );
+26};
 Let's commit the new changes:
 1gapa
-2gcmsg "Added ability to set quantity of cart items"
+2gcmsg "Added cart page"
 You can verify the changes here.
 Previous
 Next
-Adding the ability to set quantity for cart items - Learn React | BigBinary Academy
+Adding the cart page - Learn React | BigBinary Academy
 callbackfn: (value: { title: string; author: string; }, index: number, array: { title: string; author: string; }[]) => boolean, A function that accepts up to three arguments. The map method calls the callbackfn function one time for each element in the array., Calls a defined callback function on each element of an array, and returns an array that contains the results., hint
 
 Help
