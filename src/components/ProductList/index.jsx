@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import productsApi from "apis/products";
-import useDebounce from "hooks/useDebounce";
+import useDebounce from "components/hooks/useDebounce";
 import { Search } from "neetoicons";
 import { Input, Spinner, NoData } from "neetoui";
 import { isEmpty } from "ramda";
