@@ -13,10 +13,7 @@ import PriceCard from "./PriceCard";
 import ProductCard from "./ProductCard";
 
 const Cart = () => {
-  const { cartItems, setSelectedQuantity } = useCartItemsStore(store => ({
-    cartItems: store.cartItems,
-    setSelectedQuantity: store.setSelectedQuantity,
-  }));
+  const { cartItems, setSelectedQuantity } = useCartItemsStore();
 
   const slugsList = keys(cartItems);
 
