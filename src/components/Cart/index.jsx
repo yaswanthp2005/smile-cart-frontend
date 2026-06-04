@@ -1,9 +1,10 @@
+import { MRP, OFFER_PRICE } from "constants/constants";
+
 import { useEffect, useState } from "react";
 
 import productsApi from "apis/products";
 import Header from "components/commons/Header";
 import PageLoader from "components/commons/PageLoader";
-import { MRP, OFFER_PRICE } from "components/constants";
 import { cartTotalOf } from "components/utils";
 import i18n from "i18next";
 import { Toastr } from "neetoui";

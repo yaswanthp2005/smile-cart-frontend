@@ -1,4 +1,4 @@
-import useSelectedQuantity from "components/hooks/useSelectedQuantity";
+import useSelectedQuantity from "hooks/useSelectedQuantity";
 import { Button } from "neetoui";
 import { isNil } from "ramda";
 

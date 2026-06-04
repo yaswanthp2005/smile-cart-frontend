@@ -1,43 +1,23 @@
-import { useEffect, useState } from "react";
-
-import useSelectedQuantity from "components/hooks/useSelectedQuantity";
+import { useShowProduct } from "hooks/reactQuery/useProductsApi";
+import useSelectedQuantity from "hooks/useSelectedQuantity";
 import { LeftArrow } from "neetoicons";
 import { Spinner, Button } from "neetoui";
-import { append, isNotNil } from "ramda";
+import { isNotNil } from "ramda";
 import { useParams, useHistory } from "react-router-dom";
 import routes from "routes";
 
 import Carousel from "./Carousel";
 
-import productsApi from "../../apis/products";
 import AddToCart from "../commons/AddToCart";
 import PageNotFound from "../commons/PageNotFound";
 
 const Product = () => {
-  const [product, setProduct] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [isError, setIsError] = useState(false);
-
   const history = useHistory();
   const { slug } = useParams();
 
   const { selectedQuantity, setSelectedQuantity } = useSelectedQuantity(slug);
 
-  const fetchProduct = async () => {
-    try {
-      const response = await productsApi.show(slug);
-      setProduct(response);
-    } catch (error) {
-      console.log(error);
-      setIsError(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProduct();
-  }, []);
+  const { data: product, isLoading, isError } = useShowProduct(slug);
 
   const { name, description, mrp, offerPrice, imageUrls, imageUrl } = product;
   const totalDiscounts = mrp - offerPrice;
@@ -67,7 +47,7 @@ const Product = () => {
         <div className="w-2/5">
           <div className="flex justify-center gap-16">
             {isNotNil(imageUrls) ? (
-              <Carousel imageUrls={append(imageUrl, imageUrls)} title={name} />
+              <Carousel />
             ) : (
               <img alt={name} className="w-48" src={imageUrl} />
             )}
