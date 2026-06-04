@@ -1,13 +1,10 @@
 import { MRP, OFFER_PRICE } from "constants/constants";
 
-import { useEffect, useState } from "react";
-
-import productsApi from "apis/products";
 import Header from "components/commons/Header";
 import PageLoader from "components/commons/PageLoader";
 import { cartTotalOf } from "components/utils";
+import { useFetchCartProducts } from "hooks/reactQuery/useProductsApi";
 import i18n from "i18next";
-import { Toastr } from "neetoui";
 import { keys, isEmpty } from "ramda";
 import useCartItemsStore from "stores/useCartItemsStore";
 import withTitle from "utils/withTitle";
@@ -16,62 +13,10 @@ import PriceCard from "./PriceCard";
 import ProductCard from "./ProductCard";
 
 const Cart = () => {
-  const { cartItems, setSelectedQuantity } = useCartItemsStore();
+  const cartItems = useCartItemsStore(store => store.cartItems);
 
-  const slugsList = keys(cartItems);
-
-  const [products, setProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const removeCartItem = useCartItemsStore(store => store.removeCartItem);
-
-  const fetchCartProducts = async () => {
-    try {
-      const responses = await Promise.all(
-        slugsList.map(slug => productsApi.show(slug))
-      );
-
-      setProducts(responses);
-
-      responses.forEach(response => {
-        const { availableQuantity, name, slug } = response || {};
-
-        // If API didn't return availability info, remove the item safely
-        if (typeof availableQuantity !== "number") {
-          removeCartItem(slug);
-          Toastr.error(
-            `${
-              name || slug
-            } is no longer available and has been removed from cart`,
-            { autoClose: 2000 }
-          );
-
-          return;
-        }
-
-        const selected = parseInt(cartItems[slug]) || 0;
-        if (availableQuantity >= selected) return;
-
-        setSelectedQuantity(slug, availableQuantity);
-        if (availableQuantity === 0) {
-          Toastr.error(
-            `${name} is no longer available and has been removed from cart`,
-            {
-              autoClose: 2000,
-            }
-          );
-        }
-      });
-    } catch (error) {
-      console.log("An error occurred:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCartProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cartItems]);
+  const slugs = keys(cartItems);
+  const { data: products = [], isLoading } = useFetchCartProducts(slugs);
 
   if (isLoading) return <PageLoader />;
 
@@ -86,8 +31,8 @@ const Cart = () => {
     );
   }
 
-  const totalMrp = cartTotalOf(products, MRP);
-  const totalOfferPrice = cartTotalOf(products, OFFER_PRICE);
+  const totalMrp = cartTotalOf(products, MRP, cartItems);
+  const totalOfferPrice = cartTotalOf(products, OFFER_PRICE, cartItems);
 
   return (
     <>
