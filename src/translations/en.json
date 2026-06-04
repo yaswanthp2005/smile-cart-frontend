@@ -13,6 +13,9 @@
   },
   "checkout": "Checkout",
   "confirmOrder": "Confirm order",
+  "subtotal": "Subtotal <span>${{totalPrice}}</span>",
+  "totalPayablePrice": "Total Payable <span>${{totalPrice}}</span>",
+  "deliveryCharges": "Delivery charges <span>FREE</span>",
   "contact": "Contact",
   "email": "Email",
   "enterYourEmail": "Enter your email",
@@ -50,5 +53,6 @@
   },
   "order": {
     "successfullyPlaced": "Order has been successfully placed"
-  }
+  },
+  "saveInformationForNextTime": "Save this information for next time"
 }
