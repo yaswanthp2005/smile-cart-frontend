@@ -1,4 +1,4 @@
-import { OFFER_PRICE } from "constants/constants";
+import { MRP, OFFER_PRICE } from "constants/constants";
 
 import { cartTotalOf } from "components/utils";
 import { useFetchCartProducts } from "hooks/reactQuery/useProductsApi";
@@ -15,10 +15,14 @@ const Items = ({ isSubmitDisabled }) => {
   const { t } = useTranslation();
 
   const slugs = useCartItemsStore(store => keys(store.cartItems), shallow);
+  const cartItems = useCartItemsStore(store => store.cartItems);
 
-  const { data: products = [] } = useFetchCartProducts(slugs);
+  const { data: products = [] } = useFetchCartProducts(slugs, {
+    syncCartItems: false,
+  });
 
-  const totalCheckoutPrice = cartTotalOf(products, OFFER_PRICE);
+  const subtotal = cartTotalOf(products, MRP, cartItems);
+  const totalCheckoutPrice = cartTotalOf(products, OFFER_PRICE, cartItems);
 
   return (
     <div className="flex h-full flex-col p-10">
@@ -26,7 +30,7 @@ const Items = ({ isSubmitDisabled }) => {
         <Product key={product.slug} {...product} />
       ))}
       <div className="mt-5 w-3/4 space-y-3">
-        <PriceEntry i18nKey="subtotal" totalPrice={totalCheckoutPrice} />
+        <PriceEntry i18nKey="subtotal" totalPrice={subtotal} />
         <PriceEntry className="text-green-700" i18nKey="deliveryCharges" />
         <div className="neeto-ui-border-black border-t border-dashed" />
         <PriceEntry

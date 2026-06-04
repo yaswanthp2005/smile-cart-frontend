@@ -15,8 +15,9 @@ const PriceCard = ({ totalMrp, totalOfferPrice }) => {
   const itemsCount = useCartItemsStore(store => keys(store.cartItems).length);
 
   return (
-    <div className="neeto-ui-rounded neeto-ui-border-black space-y-2 border p-3">
+    <div className="neeto-ui-rounded neeto-ui-border-black space-y-3 border p-3">
       <Typography
+        style="h5"
         className={classNames("flex justify-between", {
           "line-through": isDiscountPresent,
         })}
@@ -28,29 +29,27 @@ const PriceCard = ({ totalMrp, totalOfferPrice }) => {
         />
       </Typography>
       {isDiscountPresent && (
-        <>
-          <Typography className="flex justify-between text-green-700">
-            <Trans
-              components={{ span: <span /> }}
-              i18nKey="totalDiscounts"
-              values={{ discounts: totalDiscounts, discountPercentage }}
-            />
-          </Typography>
-          <Typography className="flex justify-between">
-            <Trans
-              components={{ span: <span /> }}
-              i18nKey="offerPrice"
-              values={{ offerPrice: totalOfferPrice }}
-            />
-          </Typography>
-          <span className="neeto-ui-text-gray-500 text-sm">
-            {t("itemCount", { count: itemsCount })}
-          </span>
-        </>
+        <Typography className="flex justify-between text-green-700" style="h5">
+          <Trans
+            components={{ span: <span /> }}
+            i18nKey="totalDiscounts"
+            values={{ discounts: totalDiscounts, discountPercentage }}
+          />
+        </Typography>
       )}
+      <Typography className="flex justify-between" style="h5">
+        <Trans
+          components={{ span: <span /> }}
+          i18nKey="offerPrice"
+          values={{ offerPrice: totalOfferPrice }}
+        />
+      </Typography>
+      <span className="neeto-ui-text-gray-500 text-sm">
+        {t("itemCount", { count: itemsCount })}
+      </span>
       <div className="flex flex-col items-center pt-4">
         <Button
-          className="bg-neutral-800"
+          className="bg-neutral-800 w-full"
           label={t("buyNow")}
           to={routes.checkout}
         />

@@ -46,7 +46,10 @@ const Checkout = () => {
   }));
 
   const { isLoading: isLoadingProducts } = useFetchCartProducts(
-    keys(cartItems)
+    keys(cartItems),
+    {
+      syncCartItems: false,
+    }
   );
 
   const { mutate: createOrder } = useCreateOrder();

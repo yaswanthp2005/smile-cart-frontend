@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useQueries } from "react-query";
 import useCartItemsStore from "stores/useCartItemsStore";
 
-export const useFetchCartProducts = slugs => {
+export const useFetchCartProducts = (slugs, { syncCartItems = true } = {}) => {
   const { t } = useTranslation();
   const { cartItems, setSelectedQuantity } = useCartItemsStore();
 
@@ -14,6 +14,8 @@ export const useFetchCartProducts = slugs => {
     queryKey: [QUERY_KEYS.PRODUCTS, slug],
     queryFn: () => productsApi.show(slug),
     onSuccess: ({ availableQuantity, name }) => {
+      if (!syncCartItems) return;
+
       if (availableQuantity >= cartItems[slug]) return;
 
       setSelectedQuantity(slug, availableQuantity);
