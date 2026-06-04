@@ -12,6 +12,7 @@
     "title": "My cart"
   },
   "checkout": "Checkout",
+  "confirmOrder": "Confirm order",
   "contact": "Contact",
   "email": "Email",
   "enterYourEmail": "Enter your email",
@@ -42,5 +43,12 @@
     "stateRequired": "State is required",
     "zipCodeRequired": "Zip code is required",
     "emailInvalid": "Email address is invalid"
+  },
+  "error": {
+    "noInternetConnection": "No Internet Connection",
+    "networkError": "Network Error"
+  },
+  "order": {
+    "successfullyPlaced": "Order has been successfully placed"
   }
 }
